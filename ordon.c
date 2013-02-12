@@ -29,7 +29,7 @@ enum Erreur {ERR_ARG = 1, ERR_QUANTUM, ERR_FICHIER, ERR_PID, ERR_PIPE};
 
 enum Algo {SJF, SJFP, RR};
 
-enum Etat {PRET, ACTIF, BLOQUE, FIN};
+enum Etat {PRET, ACTIF, BLOQUE, FIN, FIN_QUANTUM};
 
 
 //Structures pour les listes
@@ -48,6 +48,9 @@ typedef struct  {
 
 
 typedef struct {
+    enum Etat etat;
+    int tempsDebut;
+    int tempsFin;
     int ligneFich;              //Pour départager deux fichiers egaux
     int tempsActif;
     int pid;
@@ -74,6 +77,7 @@ int traiterBloque(Processus *p);
 enum Etat traiterActif(Processus **p, int *pipe, int temps, int quantum, enum Algo algo);
 Processus * choisirProcessus(Liste *pret);
 void libererProcessus(Processus *p);
+int traiterListeBloque (Liste *bloque, Liste *pret, int (*compare)(const void *p1, const void *p2));
 
 
 //--------------------------------------------------------------------------------
@@ -391,27 +395,34 @@ enum Etat traiterActif(Processus **p, int *pipe, int temps, int quantum, enum Al
     char chaine[10];
     (*p)->tempsTotalProc--;
     (*p)->tempsActif++;
+    printf("dans traiterActif\n");
+    printf("PID = %d, tempsTotalProc = %d, tempsActif = %d\n", (*p)->pid, (*p)->tempsTotalProc, (*p)->tempsActif);
     (--(*(int *)((*p)->posTempsProc->contenu)));
     if((*(int *)((*p)->posTempsProc->contenu)) <= 0) {
-        sprintf(chaine, "-%d\n", temps);
-        write(pipe[1], chaine, strlen(chaine));
+        (*p)->tempsFin = temps;
+        
         //On pointe vers le prochain element de la liste
         (*p)->posTempsProc = (*p)->posTempsProc->suivant;
         if((*p)->posTempsProc == NULL) {
+            printf("TraiterActif restourne FIN\n");
             return FIN;
         } else {
+            (*p)->tempsActif = 0;
+            printf("TraiterActif restourne BLOQUE\n");
             return BLOQUE;
         }
+        printf("TraiterActif restourne ACTIF\n");
         return ACTIF;
     } 
-    if (algo == SJFP) {
-       if( (*p)->tempsActif >= quantum) {
-        sprintf(chaine, "%d\n", temps);
-        write(pipe[1], chaine, strlen(chaine));
+    if (algo == SJFP && (*p)->tempsActif >= quantum) {
+        (*p)->tempsActif = 0;
+        (*p)->tempsFin = temps;
+        (*p)->etat = FIN_QUANTUM;
+        printf("TraiterActif restourne PRET\n");
         (*p)->tempsActif = 0;
         return PRET;
-        }
     }
+    printf("TraiterActif restourne ACTIF\n");
     return ACTIF;
 }
 
@@ -436,35 +447,37 @@ void libererProcessus(Processus *p) {
 
 Processus * choisirProcessus(Liste *pret) {
 
-    //printf("Appel de choisirProcessus\n");
+    printf("Appel de choisirProcessus\n");
     Processus *p = (Processus *)pret->debut->contenu;
     Noeud *iterateur = pret->debut->suivant;
     
     //Premierement, on classe les processus en ordre de temps de processus restant
     
-//    printf("Pret est\n");
+    printf("Pret est\n");
     iterateur = pret->debut;
-//    while(iterateur) {
-//        printf("PID %d\n", ((Processus *)iterateur->contenu)->pid);
-//        if(iterateur->suivant)
-//            printf("iterateur->suivant est non NULL\n");
-//        else
-//            printf("iterateur->suivant est NULL\n");
-//        iterateur = iterateur->suivant;
-//    }
-//    printf("p = PID %d\n", p->pid);
-//    if(iterateur != NULL)
-//        printf("iterateur = PID %d\n",((Processus *)iterateur->contenu)->pid);
-//    else
-//        printf("iterateur est NULL\n");
+   while(iterateur) {
+        printf("PID %d, temps restant = %d\n",  ((Processus *)iterateur->contenu)->pid, ((Processus *)iterateur->contenu)->tempsTotalProc);
+        iterateur = iterateur->suivant;
+    }
+    printf("p = PID %d\n", p->pid);
+    if(iterateur != NULL)
+        printf("iterateur = PID %d\n",((Processus *)iterateur->contenu)->pid);
+    else
+        printf("iterateur est NULL\n");
+
+    iterateur = pret->debut->suivant;
     while(iterateur != NULL) {
-        if(compareSJF((const void*)p, iterateur->contenu) < 0) {
+            printf("compareSJF = %d\n", compareSJF((const void*)p, iterateur->contenu));
+        if(compareSJF((const void*)p, iterateur->contenu) > 0) {
             p = (Processus *)iterateur->contenu;
+            printf("Nouveau processus plus court: PID %d temps restant = %d\n", p->pid, p->tempsTotalProc);
         }
         iterateur = iterateur->suivant;
     }
     //On prends le premier élément de la liste
-    //printf("p = PID %d\n", p->pid);
+    
+    printf("Choix de processus : PID %d temps restant = %d\n", p->pid, p->tempsTotalProc);
+    printf("p = PID %d\n", p->pid);
     listeRetirer(pret, p, compareProcessus);
     return p;
 }
@@ -717,7 +730,7 @@ void traiterSJFP(Liste *l, int *pipe, int quantum) {
     Liste *pret = listeCreer();
     Liste *bloque = listeCreer();
     Noeud *position = l->debut, *posBloque, *temp; //Dans l
-    Processus *actif = NULL;
+    Processus *actif = NULL, *ancienActif, *finQuantum = NULL;;
     int temps = 0, idle = 0, debutIdle, verifProc;
     char chaine[20];
     enum Etat changement;
@@ -730,6 +743,7 @@ void traiterSJFP(Liste *l, int *pipe, int quantum) {
             return;
         }
 
+        ancienActif = NULL;
         verifProc = 0;
         //On regarde si de nouveaux processus arrive:: on les ajoute à la
         //liste pret
@@ -739,60 +753,50 @@ void traiterSJFP(Liste *l, int *pipe, int quantum) {
             listeInserer(pret, (void *)position->contenu);
             position = position->suivant;
         }
+
+        verifProc += traiterListeBloque(bloque, pret, compareProcessus);
         
-        //Maintenant on traite les processus bloques
-        posBloque = bloque->debut;
-//        if(posBloque)
-//            printf("posBloque = PID %d\n", posBloque->p->pid);
-        while (posBloque != NULL) {
-            //On met à jour le temp de blocage
-            ++(*((int *)((Processus *)posBloque->contenu)->posTempsProc->contenu));
-            if((*((int *)((Processus *)posBloque->contenu)->posTempsProc->contenu)) >= 0) {
-                //Plus bloque: termine ou pret?
-                ((Processus *)posBloque->contenu)->posTempsProc = ((Processus *)posBloque->contenu)->posTempsProc->suivant;
-                if(((Processus *)posBloque->contenu)->posTempsProc == NULL) {
-                    posBloque = listeRetirer(bloque, posBloque->contenu, compareProcessus);
-                } else {
-                    verifProc = 1;
-                    //Processus passe à prêt
-
-//                    printf("Appel de listeInserer sur pret de bloque, temps = %d\n", temps);
-                    listeInserer(pret, posBloque->contenu);
-                    posBloque = listeRetirer(bloque, posBloque->contenu, compareProcessus);
-                }
-            } else {
-                posBloque = posBloque->suivant;
-            }
+       
+        if(finQuantum) {
+            listeInserer(pret, finQuantum);
+            finQuantum = NULL;
         }
-
         //Maintenant on traite le processus actif, s'il y en a un
 
-//        printf("Verifie si actif\n");
+//      printf("Verifie si actif\n");
         if(actif != NULL) {
 //            printf("actif n'est pas NULL\n");
             changement = traiterActif(&actif, pipe, temps, quantum, SJFP);
-            if (changement == BLOQUE) {
-
+            if (changement == BLOQUE || changement == FIN) {
+                    sprintf(chaine, "PID %d  : %d-%d\n", actif->pid, 
+                            actif->tempsDebut, actif->tempsFin);
+                    write(pipe[1], chaine, strlen(chaine));
+                if(changement == BLOQUE) {
 //                printf("Appel de listeInserer sur bloque de actif, temps = %d\n", temps);
-                listeInserer(bloque, (void *)actif);
-                actif = NULL;
-            } else if (changement == FIN) {
-                //A revoir
-                libererProcessus(actif);
-                free(actif);
+                    listeInserer(bloque, (void *)actif);
+                } else {
+                    libererProcessus(actif);
+                    free(actif);
+                }
                 actif = NULL;
             } else if (changement == PRET) {
+                finQuantum = actif;
+                sprintf(chaine, "PID %d : %d-%d\n", finQuantum->pid, 
+                                finQuantum->tempsDebut, finQuantum->tempsFin);
+                write(pipe[1], chaine, strlen(chaine));
+                
+                actif = NULL;
+            } else if(verifProc != 0) {
 //                printf("Appel de listeInserer sur pret de actif, temps = %d\n", temps);
+                ancienActif = actif;
+                actif->tempsActif = 0;
+                actif->tempsFin = temps;
                 listeInserer(pret, (void *)actif);
                 actif = NULL;
             }
-        } 
-        if(verifProc == 1 && actif != NULL) {
-//            printf("Appel de listeInserer sur pret de verifProc, temps = %d\n", temps);
-    
-            listeInserer(pret, (void *)actif);
-            actif = NULL;
+            
         }
+
         if(actif == NULL) {
 //            printf("Actif est NULL\n");
             //On choisit un nouveau processus
@@ -808,13 +812,82 @@ void traiterSJFP(Liste *l, int *pipe, int quantum) {
                     idle = 0;
                 }
                 actif = choisirProcessus(pret);
+                actif->tempsDebut = temps;
+                //printf("Changement de contexte, actif = %d\n", actif->pid);
 //                printf("Retour de choisirProcessus\n");
 //                printf("actif = PID %d\n", actif->pid);
-                sprintf(chaine, "PID %d : %d", actif->pid, temps);
-                write(pipe[1], chaine, strlen(chaine));
+//
+                //On vérifie s'il s'agit d'un nouveau processus, ou l'ancien
+                if(actif->tempsFin != temps) {
+                    //On imprime l'ancien, s'il y a lieu
+                    if(ancienActif) {
+                        sprintf(chaine, "PID %d : %d-%d\n", ancienActif->pid, 
+                                ancienActif->tempsDebut, ancienActif->tempsFin);
+                        write(pipe[1], chaine, strlen(chaine));
+                    }
+                }
             }
         }
+
+        printf("fin de boucle\n");
+        printf("temps = %d\n", temps);
+        temp = position;
+        printf("etat des processus nouveau:\n");
+        while(temp != NULL) {
+            printf("PID %d,temps restant = %d\n", ((Processus *)temp->contenu)->pid, ((Processus *)temp->contenu)->tempsTotalProc);
+            temp = temp->suivant;
+        }
+        temp = pret->debut;
+        printf("etat des processus pret:\n");
+        while(temp != NULL) {
+            printf("PID %d, temps restant = %d\n", ((Processus *)temp->contenu)->pid, ((Processus *)temp->contenu)->tempsTotalProc);
+            temp = temp->suivant;
+        }
+        temp = bloque->debut;
+        printf("etat des processus bloque:\n");
+        while(temp != NULL) {
+            printf("PID %d temps restant = %d\n", ((Processus *)temp->contenu)->pid, ((Processus *)temp->contenu)->tempsTotalProc);
+            temp = temp->suivant;
+        }
+        printf("etat des processus actifs:\n");
+        if(actif) 
+            printf("PID %d temps restant = %d\n", actif->pid, actif->tempsTotalProc);
+        else
+            printf("Processeur est IDLE\n");
+        printf("-----------------------------\n");
+
         temps++;
     } //fin while
     return;
 } //fin traiter SJFP
+
+
+//Retourne 0 si aucun nouveau processus pret, 1 sinon;
+int traiterListeBloque (Liste *bloque, Liste *pret, int (*compare)(const void *p1, const void *p2)) {
+
+    int verifProc = 0;
+    //Maintenant on traite les processus bloques
+    Noeud *posBloque = bloque->debut;
+    while (posBloque != NULL) {
+                printf("posBloque = PID %d et bloque restant = %d\n", ((Processus *)posBloque->contenu)->pid, *((int *)((Processus *)posBloque->contenu)->posTempsProc->contenu));
+        //On met à jour le temp de blocage
+        ++(*((int *)((Processus *)posBloque->contenu)->posTempsProc->contenu));
+        if((*((int *)((Processus *)posBloque->contenu)->posTempsProc->contenu)) >= 0) {
+            //Plus bloque: termine ou pret?
+            ((Processus *)posBloque->contenu)->posTempsProc = ((Processus *)posBloque->contenu)->posTempsProc->suivant;
+            if(((Processus *)posBloque->contenu)->posTempsProc == NULL) {
+                posBloque = listeRetirer(bloque, posBloque->contenu, (*compare));
+            } else {
+                verifProc = 1;
+                //Processus passe à prêt
+
+//                    printf("Appel de listeInserer sur pret de bloque, temps = %d\n", temps);
+                listeInserer(pret, posBloque->contenu);
+                posBloque = listeRetirer(bloque, posBloque->contenu, compareProcessus);
+            }
+        } else {
+            posBloque = posBloque->suivant;
+        }
+    }
+    return verifProc;
+}
