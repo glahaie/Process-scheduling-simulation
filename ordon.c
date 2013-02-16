@@ -22,7 +22,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <ctype.h>
-#define TAILLE_T  5 //Taille minimale du tableau de processus
+#define TAILLE_T  25 //Taille minimale du tableau de processus
 #define MAX_LIG 255
 #define IDLE "IDLE"
 #define SJF_S "SJF"
@@ -57,13 +57,11 @@ typedef struct {
     enum Etat etat;
     int tempsDebut;
     int tempsFin;
-    int ligneFich;              //Pour départager deux fichiers egaux
+    int ligneFich;              //Pour départager deux processus
     int tempsActif;
     int pid;
     int arrive;
-    int tempsTotalProc;          //Pour SJF
     Liste *tempsProc;
-    Noeud *posTempsProc;
 } Processus;
 
 //Lire_fichier: traite le fichier donné en argument et retourne un tableau de Processus
@@ -105,7 +103,7 @@ void traiterProcessus(Liste *l, int *pipefd, int quantum, enum Algorithme algo);
 
 int main(int argc, char *argv[]) {
 
-    int quantum, pipefd[3][2], i, vtfr[3], buf, status, pipeTest[2];
+    int quantum, pipefd[3][2], i, vtfr[3];
     char *resultat[3];
     char *e;
     FILE* fichier;
@@ -136,31 +134,20 @@ int main(int argc, char *argv[]) {
     //On trie la liste en ordre d'arrive des processus
     listeQuickSort(l, compareArrive);
 
-    if(pipe(pipefd[0]) < 0) {
-        printf("Erreur\n");
-        exit(EXIT_FAILURE);
-    }
-    vtfr[0] = fork();
-    if(vtfr[0] != 0) {
-        resultat[0] = lirePipe(pipefd[0], vtfr[0]);
-    } else {
-        close(pipefd[0][0]);
-        traiterProcessus(l, pipefd[0], quantum, SJF);
-        exit(EXIT_SUCCESS);
-    }
-
-    //traiterProcessus(l, pipefd[0], quantum, SJF);
-  
-//    printf("Resultat:\n");
-//    printf("%s\n", resultat[0]);
-/*
     //On traite les algorithmes
     for(i = 0; i < 3; i++) {
-        pipe(pipefd[i]);
-        vtfr[i] = fork();
+        if(pipe(pipefd[i]) < 0) {
+            perror("pipe");
+            exit(EXIT_FAILURE);
+        }
+        if((vtfr[i] = fork()) < 0) {
+            perror("fork");
+            exit(EXIT_FAILURE);
+        }
         if(vtfr[i] != 0) {
             resultat[i] = lirePipe(pipefd[i], vtfr[i]);
         } else {
+            close(pipefd[i][0]);
             switch(i) {
                 case 0: traiterProcessus(l, pipefd[i], quantum, SJF);
                         exit(EXIT_SUCCESS);
@@ -177,13 +164,8 @@ int main(int argc, char *argv[]) {
 
     //On affiche les résultats
     for(i = 0; i < 3; i++) {
-        printf("Ordonnancement des processus selon l'algorithme: ");
-        if(i == 0 || i == 1) {
-            printf("%s\n", (i==0)?"SJF":"SJFP");
-        } else {
-            printf("RR %d\n", quantum);
-        }
-        printf("%s", resultat[i]);
+        printf("%s\n", resultat[i]);
+        free(resultat[i]);
     }
 
     //Liberation de l'espace utilisé
@@ -193,9 +175,10 @@ int main(int argc, char *argv[]) {
         libererProcessus((Processus *)n->contenu);
         suivant = n->suivant;
         free(n);
-        n = suivant->suivant;
+        n = suivant;
     }
-*/
+    free(l);
+ 
     return 0;
 }
 
@@ -207,13 +190,12 @@ char *lirePipe(int *pipefd, int vtfr) {
  
     close(pipefd[1]);
     while(read(pipefd[0], &buf, 1) > 0) {
-        ajouterCar((char)buf, chaine, &taille, &tailleMax, TEXTE);
+        chaine = ajouterCar((char)buf, chaine, &taille, &tailleMax, TEXTE);
     }
-    ajouterCar('\0', chaine, &taille, &tailleMax, TEXTE);
+    chaine = ajouterCar('\0', chaine, &taille, &tailleMax, TEXTE);
     close(pipefd[0]);
     waitpid(vtfr, &status, 0);
 
-    printf("%s", chaine);
     return chaine;
 }
 
@@ -221,15 +203,12 @@ char * ajouterCar(int prochCar, char *chaine, int *position, int *tailleMax,
         enum Ecriture type) {
     char *temp = NULL;
 
-
     if((*position) >= (*tailleMax)) {
-        printf("changement de taille de chaine.\n");
-        printf("position = %d, tailleMax = %d\n", *position, *tailleMax);
         (*tailleMax) = (*tailleMax) * 2;
-        printf("Nouvelle tailleMax = %d\n", *tailleMax);
-        temp = (char *)realloc(chaine, (*tailleMax));
-        if(temp)
+        temp = (char *)realloc(chaine, *tailleMax);
+        if(temp) {
             chaine = temp;
+        }
         else {
             fprintf(stderr, "erreur de realloc\n");
             exit(EXIT_FAILURE);
@@ -277,8 +256,6 @@ Liste *lireFichier(FILE* fichier) {
             }
         }
 
-        //printf("ligne: %s\n", ligne);
-
         //On a une ligne de forme string bien formée, on peut l'utilisée de cette façon.
         neg = 1;
         temp = (Processus *)malloc(sizeof(Processus));
@@ -309,15 +286,12 @@ Liste *lireFichier(FILE* fichier) {
                     *intListe = prochInt;
                     listeInserer(temp->tempsProc, intListe);
                     neg = (neg==0?1:0);
-                    temp->tempsTotalProc += (prochInt>0?prochInt:0);
                 } else if ((prochInt < 0 && neg == 1) || (prochInt >= 0 && neg == 0)) {
                     *((int *)temp->tempsProc->fin->contenu) += prochInt;
-                    temp->tempsTotalProc += (prochInt>0?prochInt:0);
                 }
             }
         }
         temp->ligneFich = ++noLig;
-        temp->posTempsProc = temp->tempsProc->debut;
         assert(i >= 3 && "Manque d'information pour un processus.");
         listeInserer(l, temp);
     }
@@ -349,7 +323,7 @@ void traiterProcessus(Liste *l, int *pipe, int quantum, enum Algorithme algo) {
     Liste *bloque = listeCreer();
     Noeud *position = l->debut, *temp;
     Processus *actif = NULL, *ancienActif;
-    int temps = 0, idle = 0, debutIdle;
+    int temps = 0, idle = 0, debutIdle, preemption;
     char chaine[20];               
     enum Etat changement;
 
@@ -367,27 +341,24 @@ void traiterProcessus(Liste *l, int *pipe, int quantum, enum Algorithme algo) {
     write(pipe[1], "\n", 1);
 
 
-    while(1) {
+    while(position!=NULL || !listeVide(pret) || 
+            !listeVide(bloque) || actif != NULL) {
 
         ancienActif = NULL;
-        //On regarde si on a traité tous les processus
-        if(position==NULL && listeVide(pret) && listeVide(bloque) && actif == NULL) {
-            free(pret);
-            free(bloque);
-            return;
-        }
+        preemption = 0;
         //On regarde si de nouveaux processus arrive:: on les ajoute à la
         //liste pret
         while(position != NULL && ((Processus *)(position->contenu))->arrive <= temps) {
+            if(algo == SJFP)
+            preemption = 1;
             listeInserer(pret, (void *)position->contenu);
             position = position->suivant;
         }
         
         //Maintenant on traite les processus bloques
-        //
 
-        traiterListeBloque(bloque, pret, compareProcessus);
-        
+        preemption += traiterListeBloque(bloque, pret, compareProcessus);
+
         //Maintenant on traite le processus actif, s'il y en a un
         if(actif != NULL) {
             changement = traiterActif(actif, temps, quantum, algo);
@@ -403,7 +374,12 @@ void traiterProcessus(Liste *l, int *pipe, int quantum, enum Algorithme algo) {
                 listeInserer(pret, (void*)actif);
                 ancienActif = actif;
                 actif = NULL;
-            } 
+            }
+            if (algo == SJFP && preemption) {
+                listeInserer(pret, (void *)actif);
+                ancienActif = actif;
+                actif = NULL;
+            }
         }
 
         if(actif == NULL) {
@@ -415,13 +391,11 @@ void traiterProcessus(Liste *l, int *pipe, int quantum, enum Algorithme algo) {
                     sprintf(chaine, "PID %d : %d-%d\n", ancienActif->pid, ancienActif->tempsDebut, temps);
                     write(pipe[1], chaine, strlen(chaine));
 
-//                    printf("PID %d : %d-%d\n", ancienActif->pid, ancienActif->tempsDebut, temps);
                 }
 
             } else if (!listeVide(pret)) {
                 //On a un processus, donc on imprime le idle avant
                 if (idle) {
-//                    printf("%s : %d-%d\n", IDLE, debutIdle, temps);
                     sprintf(chaine, "%s : %d-%d\n", IDLE, debutIdle, temps);
                     write(pipe[1], chaine, strlen(chaine));
                     idle = 0;
@@ -430,43 +404,27 @@ void traiterProcessus(Liste *l, int *pipe, int quantum, enum Algorithme algo) {
                 actif->tempsDebut = temps;
 
                 if(ancienActif && (compareProcessus((void *)actif, (void *)ancienActif) != 0)) {
-//                    printf("PID %d : %d-%d\n", ancienActif->pid, ancienActif->tempsDebut, temps);
                     sprintf(chaine, "PID %d : %d-%d\n", ancienActif->pid, ancienActif->tempsDebut, temps);
                     write(pipe[1], chaine, strlen(chaine));
                 } 
             }
         }
-/*
-        printf("fin de boucle\n");
-        printf("temps = %d\n", temps);
-        temp = position;
-        printf("etat des processus nouveau:\n");
-        while(temp != NULL) {
-            printf("PID %d,temps restant = %d\n", ((Processus *)temp->contenu)->pid, ((Processus *)temp->contenu)->tempsTotalProc);
-            temp = temp->suivant;
-        }
-        temp = pret->debut;
-        printf("etat des processus pret:\n");
-        while(temp != NULL) {
-            printf("PID %d, temps restant = %d\n", ((Processus *)temp->contenu)->pid, ((Processus *)temp->contenu)->tempsTotalProc);
-            temp = temp->suivant;
-        }
-        temp = bloque->debut;
-        printf("etat des processus bloque:\n");
-        while(temp != NULL) {
-            printf("PID %d temps restant = %d\n", ((Processus *)temp->contenu)->pid, ((Processus *)temp->contenu)->tempsTotalProc);
-            temp = temp->suivant;
-        }
-        printf("etat des processus actifs:\n");
-        if(actif) 
-            printf("PID %d temps restant = %d, temps debut = %d\n", actif->pid, actif->tempsTotalProc, actif->tempsDebut);
-        else
-            printf("Processeur est IDLE\n");
-        printf("-----------------------------\n");
-        */
         temps++;
 
     }
+    //On libère l'espace utilisé
+    free(pret);
+    free(bloque);
+    position = l->debut;
+    while(position != NULL) {
+        temp = position->suivant;
+        libererProcessus((Processus *)position->contenu);
+        free(position);
+        position = temp;
+    }
+    free(l);
+
+    return;
 }
 
 //Retourne l'etat du processus donne apres traitement
@@ -482,6 +440,7 @@ enum Etat traiterActif(Processus *p, int temps, int quantum,  enum Algorithme al
         p->tempsFin = temps;
         temp = p->tempsProc->debut;
         p->tempsProc->debut = p->tempsProc->debut->suivant;
+        free((int*)temp->contenu);
         free(temp);
         if(p->tempsProc->debut == NULL) {
             p->tempsProc->fin = NULL;
@@ -506,7 +465,6 @@ void libererProcessus(Processus *p) {
     Noeud *n = p->tempsProc->debut;
     Noeud *suivant;
 
-
     while (n != NULL) {
         suivant = n->suivant;
         free(n->contenu);
@@ -514,6 +472,7 @@ void libererProcessus(Processus *p) {
         n = suivant;
     }
     free(p->tempsProc);
+    free(p);
 }
 
 Processus * choisirProcessus(Liste *pret, enum Algorithme algo) {
@@ -537,7 +496,6 @@ Processus * choisirProcessus(Liste *pret, enum Algorithme algo) {
             iterateur = iterateur->suivant;
         }
     }
-    //On prends le premier élément de la liste
     listeRetirer(pret, p, compareProcessus);
     return p;
 }
@@ -550,7 +508,7 @@ int compareSJF(const void* p1, const void* p2) {
     Processus *pr1 = (Processus *)p1;
     Processus *pr2 = (Processus *)p2;
     int temp;
-    temp = (*((int *)pr1->posTempsProc->contenu)) - (*((int *)pr2->posTempsProc->contenu));
+    temp = (*((int *)pr1->tempsProc->debut->contenu)) - (*((int *)pr2->tempsProc->debut->contenu));
     if(temp != 0)
         return temp;
     else 
@@ -572,18 +530,15 @@ Liste *listeCreer(void) {
 //
 //voir le warning
 Noeud *listeInserer(Liste *l, void *p) {
-//    printf("Appel de listeInserer\n");
     Noeud *temp = (Noeud*)malloc(sizeof(Noeud));
     temp->contenu = p;
     temp->suivant = NULL;
     if(l->debut == NULL) {
-//        printf("Ajoute debut liste.\n");
         //Liste vide
         l->debut = temp;
         l->fin = temp;
         l->taille++;
     } else {
-//        printf("Ajoute fin liste.\n");
         //On ajuste la fin de la liste
         l->fin->suivant = temp;
         l->fin = temp;
@@ -783,7 +738,7 @@ int traiterListeBloque (Liste *bloque, Liste *pret, int (*compare)(const void *p
             temp->tempsProc->debut = temp->tempsProc->debut->suivant;
             free((int *)aLiberer->contenu);
             free(aLiberer);
-            if(temp->posTempsProc == NULL) {
+            if(temp->tempsProc->debut == NULL) {
                 temp->tempsProc->fin = NULL;
                 posBloque = listeRetirer(bloque, (void*)temp, (*compare));
             } else {
