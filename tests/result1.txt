@@ -1,0 +1,24 @@
+Resultat du processus pour: SJF
+IDLE : 0-2
+PID 1 : 2-12
+IDLE : 12-15
+PID 1 : 15-26
+IDLE : 26-30
+PID 1 : 30-42
+
+Resultat du processus pour: SJFP
+IDLE : 0-2
+PID 1 : 2-12
+IDLE : 12-15
+PID 1 : 15-26
+IDLE : 26-30
+PID 1 : 30-42
+
+Resultat du processus pour: RR 5
+IDLE : 0-2
+PID 1 : 2-12
+IDLE : 12-15
+PID 1 : 15-26
+IDLE : 26-30
+PID 1 : 30-42
+

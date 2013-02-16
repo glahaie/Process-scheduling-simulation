@@ -1,0 +1,3 @@
+test1.txt: un processus, avec blocage, les 3 algorithmes devraient avoir le même résultat
+test2.txt: deux processus arrivent en même temps, on s'assure que le premier lu du fichier est traité en premier
+test3.txt: meme que test2, mais on vérifie au retour de bloque
