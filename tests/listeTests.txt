@@ -1,4 +1,25 @@
-test1.txt: un processus, avec blocage, les 3 algorithmes devraient avoir le même résultat
-test2.txt: deux processus arrivent en même temps, on s'assure que le premier lu du fichier est traité en premier
+test1.txt: un processus, avec blocage, les 3 algorithmes devraient
+           avoir le même résultat
+test2.txt: deux processus arrivent en même temps, on s'assure que le premier
+           lu du fichier est traité en premier
 test3.txt: meme que test2, mais on vérifie au retour de bloque
-test4.txt: on vérifie que les règles du TP sont respectés pour RR: c'est-à-dire, que pour 2 processus à ajouter à la file, on place celui ayant le plus petit numéro de ligne de fichier en premier
+test4.txt: on vérifie que les règles du TP sont respectés pour RR: c'est-à-dire,
+           que pour 2 processus à ajouter à la file, on place celui ayant le 
+           plus petit numéro de ligne de fichier en premier, peu importe qu'il
+           arrive de nouveau ou de bloqué. On vérifie ici la logique du fichier
+           car les premiers temps d'exécution sont négatifs, il ne devrait pas
+           être accepté (facultatif)
+test5.txt: Même chose que test4, mais sans les débuts avec nombres négatifs
+test6.txt: long moment d'idle
+test7.txt: vérification de l'allocation dynamique - en terme de longueur de
+           temps de processus - verif avec valgrind, le resultat non vérifié
+           temps d'exécution:
+            real    0m0.006s
+            user    0m0.001s
+            sys     0m0.003s
+test8.txt: vérification pour le nombre de processus plutôt que le temps
+           d'exécution
+test9: vérifier que le programme s'arrete si le quantum est 0 ou négatif
+test10: vérifier le comportement si le fichier n'existe pas
+test11.txt: vérification de ce qui arrive avec un quantum qui contient des lettres
+

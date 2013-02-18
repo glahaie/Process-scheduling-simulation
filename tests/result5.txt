@@ -1,0 +1,28 @@
+Resultat du processus pour: SJF
+PID 2 : 0-10
+PID 1 : 10-15
+PID 2 : 15-20
+PID 1 : 20-25
+PID 3 : 25-30
+IDLE : 30-35
+PID 3 : 35-40
+
+Resultat du processus pour: SJFP
+PID 2 : 0-5
+PID 1 : 5-10
+PID 2 : 10-15
+PID 1 : 15-20
+PID 2 : 20-25
+PID 3 : 25-30
+IDLE : 30-35
+PID 3 : 35-40
+
+Resultat du processus pour: RR 5
+PID 2 : 0-5
+PID 1 : 5-10
+PID 2 : 10-15
+PID 3 : 15-20
+PID 1 : 20-25
+PID 2 : 25-30
+PID 3 : 30-35
+

@@ -1,0 +1,78 @@
+PID 2 -- 11 
+PID 16 -- 4 -2 3 
+dans traiterActif
+PID = 2, tempsTotalProc = 10, tempsActif = 1
+TraiterActif restourne ACTIF
+Actif est PID 2, temps = 6
+dans traiterActif
+PID = 2, tempsTotalProc = 9, tempsActif = 2
+TraiterActif restourne ACTIF
+Actif est PID 2, temps = 7
+dans traiterActif
+PID = 2, tempsTotalProc = 8, tempsActif = 3
+TraiterActif restourne ACTIF
+Actif est PID 2, temps = 8
+dans traiterActif
+PID = 2, tempsTotalProc = 7, tempsActif = 4
+TraiterActif restourne ACTIF
+Actif est PID 2, temps = 9
+dans traiterActif
+PID = 2, tempsTotalProc = 6, tempsActif = 5
+dans traiterActif
+PID = 16, tempsTotalProc = 6, tempsActif = 1
+TraiterActif restourne ACTIF
+Actif est PID 16, temps = 11
+dans traiterActif
+PID = 16, tempsTotalProc = 5, tempsActif = 2
+TraiterActif restourne ACTIF
+Actif est PID 16, temps = 12
+dans traiterActif
+PID = 16, tempsTotalProc = 4, tempsActif = 3
+TraiterActif restourne ACTIF
+Actif est PID 16, temps = 13
+dans traiterActif
+PID = 16, tempsTotalProc = 3, tempsActif = 4
+TraiterActif restourne BLOQUE
+posBloque = PID 16 et bloque restant = -2
+dans traiterActif
+PID = 2, tempsTotalProc = 5, tempsActif = 1
+TraiterActif restourne ACTIF
+Actif est PID 2, temps = 15
+posBloque = PID 16 et bloque restant = -1
+dans traiterActif
+PID = 2, tempsTotalProc = 4, tempsActif = 2
+TraiterActif restourne ACTIF
+Actif est PID 2, temps = 16
+dans traiterActif
+PID = 2, tempsTotalProc = 3, tempsActif = 3
+TraiterActif restourne ACTIF
+Actif est PID 2, temps = 17
+dans traiterActif
+PID = 2, tempsTotalProc = 2, tempsActif = 4
+TraiterActif restourne ACTIF
+Actif est PID 2, temps = 18
+dans traiterActif
+PID = 2, tempsTotalProc = 1, tempsActif = 5
+dans traiterActif
+PID = 16, tempsTotalProc = 2, tempsActif = 1
+TraiterActif restourne ACTIF
+Actif est PID 16, temps = 20
+dans traiterActif
+PID = 16, tempsTotalProc = 1, tempsActif = 2
+TraiterActif restourne ACTIF
+Actif est PID 16, temps = 21
+dans traiterActif
+PID = 16, tempsTotalProc = 0, tempsActif = 3
+TraiterActif restourne FIN
+dans traiterActif
+PID = 2, tempsTotalProc = 0, tempsActif = 1
+TraiterActif restourne FIN
+PID 2 -- 11 
+PID 16 -- 4 -2 3 
+IDLE : 0-5
+PID 2 : 5-10
+PID 16 : 10-14
+PID 2 : 14-19
+PID 16 : 19-22
+PID 2 : 22-23
+

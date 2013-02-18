@@ -1,0 +1,333 @@
+\documentclass[letterpaper,11pt]{letter}
+%\documentclass[letterpaper,12pt]{scrartcl}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[utf8x]{inputenc}
+\usepackage[margin=2cm]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{tikz}
+\usepackage{tikz-qtree}
+\usepackage{cancel}
+\usetikzlibrary{decorations.markings}
+
+\title{INF5151 TP1}
+\author{Guillaume Lahaie}
+\date{Remise: 14 février 2013}
+
+\pdfinfo{%
+  /Title    (INF5151 TP1)
+  /Author   (Guillaume Lahaie)
+}
+
+\begin{document}
+\tikzset{every tree node/.style={minimum width=2em,draw,circle},
+         blank/.style={draw=none},
+         edge from parent/.style=
+         {draw, edge from parent path={(\tikzparentnode) -- (\tikzchildnode)}},
+         level distance=1.5cm}
+\begin{center}{\Large{\bf Guillaume Lahaie\\
+LAHG04077707\\
+TP1\\
+INF5151\\
+Date de remise: 14 février 2013}}\\
+\end{center}
+
+Système de vente et d'achat
+
+{\Large 1. Déterminer les use-cases de ce système. Pour chacun, proposer une description textuelle.}
+
+Voici les uses cases:
+
+
+
+\begin{tabular}{|l|p{0.80\textwidth}|}
+  \hline
+{\bf Titre:} & Consulter des catalogues\\
+  \hline
+{\bf Type:} & Use case générale\\
+\hline
+{\bf Description:} & L'acteur consulte des catalogue du système de vente et d'achat.\\
+\hline
+{\bf Acteurs:} & Un client\\
+\hline
+{\bf Préconditions:} & Aucune\\
+\hline
+{\bf Postconditions:} & Le catalogue est disponible au client\\
+\hline
+\end{tabular}
+
+La client demande au système de consulter un catalogue. Le sytème demande alors au client s'il est membre du membre. S'il est membre, le client entre 
+alors ses informations de connexion. Il a alors accès à tous les catalogues du système.
+
+Le client non-membre du système peut alors consulter une sélection restreinte des catalogues du système.
+
+\begin{center}
+\line(1,0){250}
+\end{center}
+
+\begin{tabular}{|l|p{0.80\textwidth}|}
+  \hline
+{\bf Titre:} & Effectuer une recherche dans le système\\
+  \hline
+{\bf Type:} & Use case générale\\
+\hline
+{\bf Description:} & L'acteur soumet une requête de recherche au système, et le système lui fournit une liste des résultats.\\
+\hline
+{\bf Acteurs:} & Membre\\
+\hline
+{\bf Préconditions:} & L'acteur est un membre du système\\
+\hline
+{\bf Postconditions:} & Le système fournit la liste des résutats.\\
+\hline
+\end{tabular}
+
+Un membre s'authentifie auprès du système, il soumet une requête de recherche au système. Le système vérifie alors si le membre a assez de crédits pour effectuer
+la recherche. Si oui, le système effectue la recherche et founit au membre la liste des résultats. Il retire aussi les crédits nécessaires à la recherche au compte
+du membre.
+
+Si le membre n'a pas assez de crédit pour effectuer la recherche, le système lui envoi un message indiquant le manque de crédits.
+
+\begin{center}
+\line(1,0){250}
+\end{center}
+
+\begin{tabular}{|l|p{0.80\textwidth}|}
+  \hline
+{\bf Titre:} & S'inscrire en tant que membre\\
+  \hline
+{\bf Type:} & Use case générale\\
+\hline
+{\bf Description:} & L'acteur remplie une demande pour s'inscrire en tant que membre\\
+\hline
+{\bf Acteurs:} & Non-membre\\
+\hline
+{\bf Préconditions:} & L'acteur n'est pas déjà membre du système.\\
+\hline
+{\bf Postconditions:} & Une demande d'inscription est envoyée à l'administrateur du système.\\
+\hline
+\end{tabular}
+
+L'acteur demande au système de s'inscrire comme membre. Le système demande à l'acteur de lui fournir certaines informations. Il demande aussi à l'acteur 
+de fournir un paiement pour un abonnement d'un an. Le système envoie alors la demande à l'administrateur système.
+
+\begin{center}
+\line(1,0){250}
+\end{center}
+
+\begin{tabular}{|l|p{0.80\textwidth}|}
+  \hline
+{\bf Titre:} & Ajouter un item au système de vente\\
+  \hline
+{\bf Type:} & Use case générale\\
+\hline
+{\bf Description:} & L'acteur ajoute qu'il désire vendre au système de vente.\\
+\hline
+{\bf Acteurs:} & Membre\\
+\hline
+{\bf Préconditions:} & L'acteur est membre du système.\\
+\hline
+{\bf Postconditions:} & L'item est ajouté au système de vente.\\
+\hline
+\end{tabular}
+
+Le membre s'authentifie auprès du système. Il demande alors au système de d'ajouter un item en vente. Le système vérifie si le membre a assez de 
+crédits pour faire cette action. Si ce n'est pas le cas, il en informe le membre. Si le membre a assez de crédits, le système demande alors des informations sur l'item: prix demandé, le catalogue où il devrait apparaître, description de l'objet. Le système enregistre les informations, ajoute l'item au catalogue demandé et débite le compte de crédits du membre.
+
+\begin{center}
+\line(1,0){250}
+\end{center}
+
+\begin{tabular}{|l|p{0.80\textwidth}|}
+  \hline
+{\bf Titre:} & Retirer un item au système de vente\\
+  \hline
+{\bf Type:} & Use case générale\\
+\hline
+{\bf Description:} & L'acteur retire un item qu'il a mis en vente sur le système.\\
+\hline
+{\bf Acteurs:} & Membre\\
+\hline
+{\bf Préconditions:} & L'acteur est membre du système et l'item à retirer est présent dans le système.\\
+\hline
+{\bf Postconditions:} & L'item est rétiré au système de vente.\\
+\hline
+\end{tabular}
+
+Le membre s'authentifie auprès du système. Il demande alors au système de lui fournir une liste des items qu'il a présentement en vente. Il choisit
+l'item à retiré. Le système lui demande de confirmer le retrait et de fournir une raison du retrait, si le membre le désire.
+
+\begin{center}
+\line(1,0){250}
+\end{center}
+
+\begin{tabular}{|l|p{0.80\textwidth}|}
+  \hline
+{\bf Titre:} & Envoyer un message à un membre\\
+  \hline
+{\bf Type:} & Use case générale\\
+\hline
+{\bf Description:} & L'acteur envoie un message à un autre membre du système.\\
+\hline
+{\bf Acteurs:} & Membre\\
+\hline
+{\bf Préconditions:} & L'acteur est membre du système.\\
+\hline
+{\bf Postconditions:} & Un message est envoyé au membre choisi.\\
+\hline
+\end{tabular}
+
+Le membre s'authentifie auprès du système. Il demande au système d'envoyer un message à un membre du système. Le système demande à l'acteur d'entrer 
+l'identifiant du membre, et le message qu'il désire envoyé. Le système vérifie alors si l'acteur a assez de crédit pour effectuer cette action. Dans
+le cas positif, le message est envoyé et le système confirme l'envoie à l'acteur. Dans le cas négatif, le système avise l'acteur qu'il n'a pas assez
+de crédit pour envoyer le message.
+
+\begin{center}
+\line(1,0){250}
+\end{center}
+
+\begin{tabular}{|l|p{0.80\textwidth}|}
+  \hline
+{\bf Titre:} & Lire les messages reçus\\
+  \hline
+{\bf Type:} & Use case générale\\
+\hline
+{\bf Description:} & L'acteur prend connaissance des messages reçus.\\
+\hline
+{\bf Acteurs:} & Membre\\
+\hline
+{\bf Préconditions:} & L'acteur est membre du système.\\
+\hline
+{\bf Postconditions:} & L'acteur a pris connaissance des messages. \\
+\hline
+\end{tabular}
+
+Le membre s'authentifie auprès du système. Il demande au système de lui fournir les messages reçus. Le système retourne au membre la liste des nouveaux messages.
+L'acteur prend connaissance des messages, ensuite il peut effacer les messages, ou le conserver.
+
+\begin{center}
+\line(1,0){250}
+\end{center}
+
+\begin{tabular}{|l|p{0.80\textwidth}|}
+  \hline
+{\bf Titre:} & Consulter les crédits restants\\
+  \hline
+{\bf Type:} & Use case générale\\
+\hline
+{\bf Description:} & L'acteur consulte son nombre de crédits restants dans le système.\\
+\hline
+{\bf Acteurs:} & Membre\\
+\hline
+{\bf Préconditions:} & L'acteur est membre du système.\\
+\hline
+{\bf Postconditions:} & Le système fournit à l'acteur le nombre de crédits restants.\\
+\hline
+\end{tabular}
+
+Le membre s'authentifie auprès du système. Il demande au système de lui fournir le nombre de crédits restants. Le système fournit à l'utilisateur cette information.
+
+\begin{center}
+\line(1,0){250}
+\end{center}
+
+\begin{tabular}{|l|p{0.80\textwidth}|}
+  \hline
+{\bf Titre:} & Créer un compte\\
+  \hline
+{\bf Type:} & Use case générale\\
+\hline
+{\bf Description:} & L'acteur crée un compte dans le système\\
+\hline
+{\bf Acteurs:} & Administrateur du système.\\
+\hline
+{\bf Préconditions:} & Le compte à créer est associé à une demande\\
+\hline
+{\bf Postconditions:} & Le compte est créé.\\
+\hline
+\end{tabular}
+
+L'administrateur s'authentifie auprès du système. Il demande au système de créer un nouveau compte. Le système affiche les informations du compte 
+qui sera créé. L'administrateur vérifie les informations. Il vérifie aussi que le paiement est bien effectué. L'administateur demande au système de
+créer le compte. Le système crée le compte, ajoute les crédits et envoi un message au nouveau membre pour confirmer la création.
+
+\begin{center}
+\line(1,0){250}
+\end{center}
+
+\begin{tabular}{|l|p{0.80\textwidth}|}
+  \hline
+{\bf Titre:} & Demande de modifier les informations d'un compte\\
+  \hline
+{\bf Type:} & Use case générale\\
+\hline
+{\bf Description:} & L'acteur demande au système de modifier certaines informations de son compte.\\
+\hline
+{\bf Acteurs:} & Membre\\
+\hline
+{\bf Préconditions:} & ?\\
+\hline
+{\bf Postconditions:} & Une demande de modification est envoyée à l'administrateur.\\
+\hline
+\end{tabular}
+
+Le membre s'authentifie auprès du système. Il demande au système de modifier les informations de son compte. Le système demande au membre de confirmer les
+changements à effectuer. Le système envoie la demande de modification à l'administrateur du système.
+
+\begin{center}
+\line(1,0){250}
+\end{center}
+
+\begin{tabular}{|l|p{0.80\textwidth}|}
+  \hline
+{\bf Titre:} & Modifier les informations d'un compte\\
+  \hline
+{\bf Type:} & Use case générale\\
+\hline
+{\bf Description:} & L'acteur effectue les modifications demandés à un compte.\\
+\hline
+{\bf Acteurs:} & Administateur du système.\\
+\hline
+{\bf Préconditions:} & Réception d'une demande de modification d'un compte\\
+\hline
+{\bf Postconditions:} & Le compte est modifié.\\
+\hline
+\end{tabular}
+
+L'administrateur s'authentifie auprès du système. Il demande au système de lui fournir le compte à être modifié. L'administrateur effectue les
+modifications et enregistre les changements. Le système envoie un message de confirmation au membre.
+
+\begin{center}
+\line(1,0){250}
+\end{center}
+
+\begin{tabular}{|l|p{0.80\textwidth}|}
+  \hline
+{\bf Titre:} & Renouveller un abonnement\\
+  \hline
+{\bf Type:} & Use case générale\\
+\hline
+{\bf Description:} & L'acteur effectue les modifications demandés à un compte.\\
+\hline
+{\bf Acteurs:} & Administateur du système.\\
+\hline
+{\bf Préconditions:} & Réception d'une demande de modification d'un compte\\
+\hline
+{\bf Postconditions:} & Le compte est modifié.\\
+\hline
+\end{tabular}
+
+L'administrateur s'authentifie auprès du système. Il demande au système de lui fournir le compte à être modifié. L'administrateur effectue les
+modifications et enregistre les changements. Le système envoie un message de confirmation au membre.
+
+
+2. Proposer un diagramme de Use-Cases de haut niveau, faisant apparaître
+clairement, acteurs et Use-Cases.
+3. Proposer un diagramme de Use-Cases plus détaillé, faisant apparaître des
+relations USE et EXTEND.
+4. À la vue des Use-Cases proposés, quels sont les concepts importants à
+retenir pour un futur modèle de classes.
+
+
+
+\end{document}

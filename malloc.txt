@@ -1,0 +1,176 @@
+==6339== Memcheck, a memory error detector
+==6339== Copyright (C) 2002-2011, and GNU GPL'd, by Julian Seward et al.
+==6339== Using Valgrind-3.7.0 and LibVEX; rerun with -h for copyright info
+==6339== Command: ./ordon test.txt 5
+==6339== 
+malloc de grandeur 25 appele
+malloc de grandeur 24 appele
+malloc de grandeur 40 appele
+malloc de grandeur 24 appele
+malloc de grandeur 4 appele
+malloc de grandeur 16 appele
+malloc de grandeur 4 appele
+malloc de grandeur 16 appele
+malloc de grandeur 4 appele
+malloc de grandeur 16 appele
+malloc de grandeur 16 appele
+malloc de grandeur 40 appele
+malloc de grandeur 24 appele
+malloc de grandeur 4 appele
+malloc de grandeur 16 appele
+malloc de grandeur 16 appele
+free appele
+malloc de grandeur 25 appele
+malloc de grandeur 24 appele
+malloc de grandeur 24 appele
+malloc de grandeur 16 appele
+free appele
+malloc de grandeur 16 appele
+free appele
+free appele
+free appele
+free appele
+free appele
+malloc de grandeur 16 appele
+free appele
+free appele
+malloc de grandeur 16 appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+==6340== 
+==6340== HEAP SUMMARY:
+==6340==     in use at exit: 0 bytes in 0 blocks
+==6340==   total heap usage: 23 allocs, 23 frees, 969 bytes allocated
+==6340== 
+==6340== All heap blocks were freed -- no leaks are possible
+==6340== 
+==6340== For counts of detected and suppressed errors, rerun with: -v
+==6340== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 2 from 2)
+malloc de grandeur 25 appele
+malloc de grandeur 24 appele
+malloc de grandeur 24 appele
+malloc de grandeur 16 appele
+free appele
+malloc de grandeur 16 appele
+malloc de grandeur 16 appele
+free appele
+free appele
+malloc de grandeur 16 appele
+free appele
+free appele
+free appele
+malloc de grandeur 16 appele
+free appele
+malloc de grandeur 16 appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+==6341== 
+==6341== HEAP SUMMARY:
+==6341==     in use at exit: 132 bytes in 3 blocks
+==6341==   total heap usage: 28 allocs, 25 frees, 1,176 bytes allocated
+==6341== 
+==6341== LEAK SUMMARY:
+==6341==    definitely lost: 32 bytes in 2 blocks
+==6341==    indirectly lost: 0 bytes in 0 blocks
+==6341==      possibly lost: 0 bytes in 0 blocks
+==6341==    still reachable: 100 bytes in 1 blocks
+==6341==         suppressed: 0 bytes in 0 blocks
+==6341== Rerun with --leak-check=full to see details of leaked memory
+==6341== 
+==6341== For counts of detected and suppressed errors, rerun with: -v
+==6341== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 2 from 2)
+malloc de grandeur 25 appele
+malloc de grandeur 24 appele
+malloc de grandeur 24 appele
+malloc de grandeur 16 appele
+free appele
+malloc de grandeur 16 appele
+malloc de grandeur 16 appele
+free appele
+free appele
+malloc de grandeur 16 appele
+free appele
+free appele
+free appele
+malloc de grandeur 16 appele
+free appele
+malloc de grandeur 16 appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+==6342== 
+==6342== HEAP SUMMARY:
+==6342==     in use at exit: 332 bytes in 4 blocks
+==6342==   total heap usage: 32 allocs, 28 frees, 1,551 bytes allocated
+==6342== 
+==6342== LEAK SUMMARY:
+==6342==    definitely lost: 32 bytes in 2 blocks
+==6342==    indirectly lost: 0 bytes in 0 blocks
+==6342==      possibly lost: 0 bytes in 0 blocks
+==6342==    still reachable: 300 bytes in 2 blocks
+==6342==         suppressed: 0 bytes in 0 blocks
+==6342== Rerun with --leak-check=full to see details of leaked memory
+==6342== 
+==6342== For counts of detected and suppressed errors, rerun with: -v
+==6342== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 2 from 2)
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+free appele
+==6339== 
+==6339== HEAP SUMMARY:
+==6339==     in use at exit: 0 bytes in 0 blocks
+==6339==   total heap usage: 28 allocs, 28 frees, 1,782 bytes allocated
+==6339== 
+==6339== All heap blocks were freed -- no leaks are possible
+==6339== 
+==6339== For counts of detected and suppressed errors, rerun with: -v
+==6339== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 2 from 2)

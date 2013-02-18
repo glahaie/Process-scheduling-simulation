@@ -1,0 +1,14 @@
+malloc de grandeur 25 appele
+realloc de grandeur 50 appele
+realloc de grandeur 100 appele
+malloc de grandeur 25 appele
+realloc de grandeur 50 appele
+realloc de grandeur 100 appele
+realloc de grandeur 200 appele
+malloc de grandeur 25 appele
+realloc de grandeur 50 appele
+realloc de grandeur 100 appele
+realloc de grandeur 200 appele
+free appele
+free appele
+free appele
