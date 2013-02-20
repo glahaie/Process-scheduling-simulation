@@ -26,6 +26,8 @@
 #define SJF_S "SJF"
 #define SJFP_S "SJFP"
 #define RR_S "RR"
+#define NOMBRE_ALGO 3
+#define DELIM " "
 
 
 //Enumerations::
@@ -82,6 +84,9 @@ Liste *lireFichier(FILE* fichier);
 //retourne cette chaine de caractère
 char * lirePipe(int *pipefd, int vtfr);
 
+//ecrirePipe: ecrit le resultat du prochain processus sur le pipe
+void ecrirePipe(int *pipefd, Processus *p, int temps, int tempsIdle);
+
 //ajouterCar: ajoute le caractère prochCar à la chaine chaine. Si la chaine
 //est pleine, on l'agrandit alors avec realloc.
 char * ajouterCar(int prochCar, char *chaine, int *position, 
@@ -112,9 +117,13 @@ enum Etat traiterActif(Processus *p, int quantum, enum Algorithme algo);
 //des prêts et est retourné par la fonction.
 Processus * choisirProcessus(Liste *pret, enum Algorithme algo);
 
-//Lorsqu'un processus est terminé, on libère la mémoire dynamiquement
-//allouée pour ce processus.
+//libererProcessus: Lorsqu'un processus est terminé, on libère la mémoire 
+//dynamiquement allouée pour ce processus.
 void libererProcessus(Processus *p);
+
+
+//libererListeProcessus: On libère la mémoire allouée pour la liste de processus
+void libererListeProcessus(Liste *l);
 
 //-----------------------------------------------------------------------------
 //Comparateurs différents pour listes: retourne un nombre négatif si p1 est
@@ -144,38 +153,62 @@ int compareLigFichier(const void *p1, const void *p2);
 
 //listeCreer: crée une liste de façon dynamique et retourne un pointeur
 Liste *listeCreer();
+
+//listeInserer: insère un élément dans un nouveau noeud. L'élément est insérer
+//à la fin de la liste.
 Noeud *listeInserer(Liste *l, void *p);
-void listeRetirer(Liste *l, void *p, int (*compare)(const void *p1, const void *p2));
-Noeud *listeChercher(Liste *l,void *p, int (*compare)(const void *p1, const void *p2), Noeud **prec);
-Noeud *listeRetirerDebut(Liste *l);
+
+//listeRetirer: retire l'élément donné de la liste, si l'élément est présent
+//dans la liste.
+void listeRetirer(Liste *l, void *p);
+
+//listeChercher: cherche la liste l pour vérifier si l'élément p est présent,
+//avec la fonction de comparaison donnée. Si l'élément est présent, on retourne
+//un lien vers le noeud, sinon on retourne NULL.
+Noeud *listeChercher(Liste *l,void *p, Noeud **prec);
+
+//listeVide: vérifie si la liste donnée est vide. Retourne vrai (1) si
+//elle est vide, faux (0) sinon.
 int listeVide(Liste *l);
+
+//listeQuickSort: appelle la fonction quickSort sur les noeuds, et ajuste
+//ensuite les pointeurs debut et fin.
 void listeQuickSort(Liste *l, int (*compare)(const void *p1, const void *p2));
+
+//quickSort: trie les noeuds selon la fonction de comparaison donnée.
 Noeud *quickSort(Noeud *n, int (*compare)(const void *p1,const void *p2));
+
+//chercherPivot: trouve un pivot pour effectuer quickSort
 Noeud *chercherPivot(Noeud *n);
+
+//listeLongueurPartielle: trouve la longueur de la liste à partir du 
+//noeud donnée.
 int listeLongueurPartielle(Noeud *n);
-
-
-
-//--------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
 
-    int quantum, pipefd[3][2], i, j, vtfr[3];
-    char *resultat[3];
-    char *e;
+    int quantum,            
+        pipefd[NOMBRE_ALGO][2],      //Pipes pour les fils - lire les résultats
+        vtfr[NOMBRE_ALGO],           //Valeurs de fork pour le père
+        i, j;
+    char *resultat[NOMBRE_ALGO],     //Résultats des processus fils
+         *e;
     FILE* fichier;
-    Noeud *n, *suivant;
     Liste *l;
+
+
     //Début: on vérifie les arguments
     if(argc != 3) {
         fprintf(stderr, "Usage: %s <nom_fichier> <quantum>\n", argv[0]);
         exit(ERR_ARG);
     }
 
-    //On vérifie aussi si le quantum est légale (donc > 0)
+    //On vérifie aussi si le quantum est légale (donc > 0) et contenant
+    //seulement des nombres
     quantum = strtol(argv[2], &e, 10);
     if(quantum <= 0 || *e != '\0') {
-        fprintf(stderr, "Erreur: quantum illegal.\n");
+        fprintf(stderr, "%s: Erreur: quantum illegal.\n", argv[0]);
         exit(ERR_QUANTUM);
     }
 
@@ -184,6 +217,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Erreur lors de l'ouverture du fichier.\n");
         exit(ERR_FICHIER);
     }
+    
     if((l = lireFichier(fichier)) == NULL) {
         fprintf(stderr,"Erreur de lecture de fichier: aucune information lue.\n");
         exit(ERR_FICHIER);
@@ -236,17 +270,108 @@ int main(int argc, char *argv[]) {
     }
 
     //Liberation de l'espace utilisé
-    n = l->debut;
-
-    while(n != NULL) {
-        libererProcessus((Processus *)n->contenu);
-        suivant = n->suivant;
-        free(n);
-        n = suivant;
-    }
-    free(l);
- 
+    libererListeProcessus(l);
+    
     return 0;
+}
+
+//-----------------------------------------------------------------------------
+//Fonctions de lecture de fichier et de pipe
+
+Liste *lireFichier(FILE* fichier) {
+
+    int i, *intListe, noLig = 0, prochCar;
+    int prochInt, 
+        neg;        //Est-ce que le nombre est négatif?
+    int longueurMaxLigne = TAILLE_T, longueurLigne = 0;
+    Processus *p;
+    char *ligne = (char *)malloc(TAILLE_T*sizeof(char)), *ptrLig, *e;
+    Liste *l = listeCreer();
+
+    while((prochCar = fgetc(fichier)) != EOF) {
+  
+        //Nouvelle ligne: on remet intListe à NULL
+
+        //On lit tous les chars jusqu'à un différent d'un espace
+        while(isspace(prochCar)) {
+            prochCar = fgetc(fichier);
+        }
+        //Ici, vérifier qu'on n'est pas à la fin du fichier
+       if(prochCar != EOF) {
+        
+            //On garde la même ligne qu'auparavant
+            longueurLigne = 0;
+
+            //On rempli la ligne
+            while(1) {
+                ligne = ajouterCar(prochCar, ligne, &longueurLigne, 
+                        &longueurMaxLigne, LIGNE);
+                if(prochCar == '\n' || prochCar == EOF)
+                    break;
+                prochCar = fgetc(fichier);
+            }
+        
+
+            //On a une ligne de forme string bien formée, 
+            intListe = NULL;
+            neg = 1;
+            p = (Processus *)malloc(sizeof(Processus));
+            p->tempsProc = listeCreer();
+            p->tempsActif = 0;
+
+            //On interprète la ligne
+            for(i = 0, ptrLig = strtok(ligne, DELIM); ptrLig != NULL;
+                    ptrLig = strtok(NULL, DELIM), i++) 
+            {
+                prochInt = (int)strtol(ptrLig, &e, 10);
+            
+                if((i == 0 || i == 1) && prochInt < 0 ) {  
+                    fprintf(stderr, "Valeur de PID ou temp d'arrive illégale.\n");
+                    exit(ERR_PID);
+                }
+                
+                if(i == 0) {
+                    p->pid = prochInt;
+                } else if (i == 1) {
+                    p->arrive = prochInt;
+                } else { 
+                    //C'est un temps de processus: on regarde la valeur
+                    //précédente 
+
+                    if((prochInt < 0 && neg == 0) || 
+                            (prochInt >= 0 && neg == 1)) 
+                    {
+                        //Premier chiffre ou on change de signe: nouvelle
+                        //entrée dans la liste
+                        intListe = (int*)malloc(sizeof(int));
+                        *intListe = prochInt;
+                        listeInserer(p->tempsProc, intListe);
+                        neg = (neg==0?1:0);
+                    } else if ((prochInt < 0 && neg == 1) || 
+                            (prochInt >= 0 && neg == 0)) 
+                    {
+                        if(intListe == NULL) {
+                            intListe = (int*)malloc(sizeof(int));
+                            *intListe = 0;
+                            listeInserer(p->tempsProc, intListe);
+                        }
+                        *((int *)p->tempsProc->fin->contenu) += prochInt;
+                    }
+                }
+            }
+            assert(i >= 3 && "Manque d'information pour un processus.");
+            p->ligneFich = ++noLig;
+            listeInserer(l, p);
+        }
+    }
+
+    if(ligne)
+        free(ligne);
+    if(!l) {
+        free(l);
+        return NULL;
+    }
+    return l;
 }
 
 char *lirePipe(int *pipefd, int vtfr) {
@@ -266,10 +391,25 @@ char *lirePipe(int *pipefd, int vtfr) {
     return chaine;
 }
 
+void ecrirePipe(int *pipefd, Processus *p, int temps, int tempsIdle) {
+    char chaine[50];
+    if(p == NULL) {
+        sprintf(chaine, "IDLE : %d-%d\n", tempsIdle, temps);
+    } else {
+        sprintf(chaine, "PID %d : %d-%d\n", p->pid, 
+                p->tempsDebut, temps);
+    }
+    write(pipefd[1], chaine, strlen(chaine));
+}
+
+
+
 char * ajouterCar(int prochCar, char *chaine, int *position, int *tailleMax, 
-        enum Ecriture type) {
+        enum Ecriture type) 
+{
     char *temp = NULL;
 
+    //Vérifie si on doit allouer plus d'espace
     if((*position) >= (*tailleMax)) {
         (*tailleMax) = (*tailleMax) * 2;
         
@@ -283,121 +423,33 @@ char * ajouterCar(int prochCar, char *chaine, int *position, int *tailleMax,
         }
     }
     if(type == LIGNE) {
-        chaine[(*position)++] = (char)((prochCar=='\n' || prochCar == EOF)?'\0':prochCar);
+        chaine[(*position)++] = (char)((prochCar=='\n' || prochCar == EOF)?
+                '\0':prochCar);
     } else {
         chaine[(*position)++] = (char)prochCar;
     }
     return chaine;
 }
 
-
-Liste *lireFichier(FILE* fichier) {
-
-    int i, *intListe= NULL, noLig = 0, prochCar;
-    int prochInt, neg; //neg: 0 faux, 1 vrai
-    char *ligne = (char *)malloc(TAILLE_T*sizeof(char)), *ptrLig, *e;
-    int longueurMaxLigne = TAILLE_T, longueurLigne = 0;
-    Liste *l = listeCreer();
-    Processus *temp;
-
-    while((prochCar = fgetc(fichier)) != EOF) {
-  
-        intListe = NULL;
-        //On lit tous les chars jusqu'à un différent d'un espace
-        while(isspace(prochCar)) {
-            prochCar = fgetc(fichier);
-        }
-        //Ici, vérifier si fin du fichier
-        if(prochCar == EOF) {
-            if(ligne) {
-                free(ligne);
-            }
-            return l;
-        } else {
-            //On garde la même ligne qu'auparavant
-            longueurLigne = 0;
-            //On rempli la ligne:: peut on avoir EOF à l'intérieur?
-            while(1) {
-                ligne = ajouterCar(prochCar, ligne, &longueurLigne, &longueurMaxLigne, LIGNE);
-                if(prochCar == '\n' || prochCar == EOF)
-                    break;
-                prochCar = fgetc(fichier);
-            }
-        }
-
-        //On a une ligne de forme string bien formée, on peut l'utilisée de cette façon.
-        neg = 1;
-        temp = (Processus *)malloc(sizeof(Processus));
-        temp->tempsProc = listeCreer();
-        temp->tempsActif = 0;
-
-        //On interprète la ligne
-        for(i = 0, ptrLig = ligne; ;ptrLig = e, i++) {
-            prochInt = (int)strtol(ptrLig, &e, 10);
-            if(ptrLig == e) {
-                break;
-            }
-            if(i == 0 || i == 1) {//C'est le PID
-                if(prochInt < 0) {
-                    fprintf(stderr, "Valeur de PID ou temp d'arrive illégale.\n");
-                    exit(ERR_PID);
-                }
-                if(i == 0) {
-                    temp->pid = prochInt;
-                }
-                else {
-                    temp->arrive = prochInt;
-                }
-            } else { //C'est un temps de processus
-
-                if((prochInt < 0 && neg == 0) || (prochInt >= 0 && neg == 1)) {
-                    intListe = (int*)malloc(sizeof(int));
-                    *intListe = prochInt;
-                    listeInserer(temp->tempsProc, intListe);
-                    neg = (neg==0?1:0);
-                } else if ((prochInt < 0 && neg == 1) || (prochInt >= 0 && neg == 0)) {
-                    if(intListe == NULL) {
-                        intListe = (int*)malloc(sizeof(int));
-                        *intListe = 0;
-                        listeInserer(temp->tempsProc, intListe);
-                    }
-                    *((int *)temp->tempsProc->fin->contenu) += prochInt;
-                }
-            }
-        }
-        temp->ligneFich = ++noLig;
-        assert(i >= 3 && "Manque d'information pour un processus.");
-        listeInserer(l, temp);
-    }
-    if(ligne)
-        free(ligne);
-    if(!l) {
-        free(l);
-        return NULL;
-    }
-    return l;
-}
-
-int compareArrive(const void *p1, const void *p2) {
-    Processus *pr1 = (Processus *)p1;
-    Processus *pr2 = (Processus *)p2;
-    int temp = pr1->arrive - pr2->arrive;
-    if(temp != 0) 
-        return temp;
-        
-    return pr1->ligneFich - pr2->ligneFich;
-}
+//-----------------------------------------------------------------------------
+//Fonctions de simulation des algorithmes
 
 void traiterProcessus(Liste *l, int *pipe, int quantum, enum Algorithme algo) {
 
     Liste *pret = listeCreer();
     Liste *bloque = listeCreer();
-    Liste *nouveauPret = listeCreer();
+    Liste *nouveauPret = listeCreer();      //Pour s'assurer dans RR que les
+                                            //processus sont dans le bon ordre,
+                                            //selon les exigences du TP.
     Noeud *position = l->debut, *temp;
-    Processus *actif = NULL, *ancienActif;
-    int temps = 0, idle = 0, debutIdle, preemption;
-    char chaine[20];               
-    enum Etat changement;
+    Processus *actif = NULL, *ancienActif;  //ancienActif: vérifie s'il y a
+                                            //vraiment un changement de contexte
+    int temps = 0, 
+        idle = 0, debutIdle,                //vérifie si le cpu est idle, et
+                                            //depuis quand
+        preemption;                         //Pour SJFP
+    char chaine[50];                        //chaine pour écrire sur le pipe
+    enum Etat changement;                   
 
     char blah[] = "Resultat du processus pour: ";
     write(pipe[1], blah, strlen(blah));
@@ -420,11 +472,15 @@ void traiterProcessus(Liste *l, int *pipe, int quantum, enum Algorithme algo) {
         preemption = 0;
         //On regarde si de nouveaux processus arrive:: on les ajoute à la
         //liste pret
-        while(position != NULL && ((Processus *)(position->contenu))->arrive <= temps) {
-            if(*((int *)(((Processus *)position->contenu)->tempsProc->debut->contenu)) < 0) {
+        while(position != NULL && 
+                ((Processus *)(position->contenu))->arrive <= temps) 
+        {
+            //Vérifie ici si le processus est bloqué au début: logiquement,
+            //ne devrait pas se produire
+            if(*((int *)(((Processus *)position->contenu)->
+                            tempsProc->debut->contenu)) < 0) {
                 listeInserer(bloque, position->contenu);
             } else {
-
                 if(algo == SJFP)
                     preemption = 1;
                 listeInserer(nouveauPret, position->contenu);
@@ -433,67 +489,61 @@ void traiterProcessus(Liste *l, int *pipe, int quantum, enum Algorithme algo) {
         }
         
         //Maintenant on traite les processus bloques
-
         preemption += traiterListeBloque(bloque, nouveauPret);
         
         
-        if(algo == RR) {
-            listeQuickSort(nouveauPret, compareLigFichier);
-        }
-        temp = nouveauPret->debut;
-        while(temp) {
-            listeInserer(pret, temp->contenu);
-            listeRetirer(nouveauPret, temp->contenu, compareLigFichier);
-            temp = nouveauPret->debut;
-        }
-
 
         //Maintenant on traite le processus actif, s'il y en a un
         if(actif != NULL) {
             changement = traiterActif(actif, quantum, algo);
             if (changement == BLOQUE) {
                 listeInserer(bloque, (void *)actif);
-                ancienActif = actif;
-                actif = NULL;
-            } else if (changement == FIN) {
-                //A revoir
-                ancienActif = actif;
-                actif = NULL;
             } else if (changement == PRET) {
-                listeInserer(pret, (void*)actif);
-                ancienActif = actif;
-                actif = NULL;
+                listeInserer(nouveauPret, (void*)actif);
             } else if (algo == SJFP && preemption) {
-                listeInserer(pret, (void *)actif);
-                ancienActif = actif;
-                actif = NULL;
+                listeInserer(nouveauPret, (void *)actif);
             }
+            ancienActif = (changement != ACTIF || (algo == SJFP && preemption))?
+                            actif:NULL;
+            actif = (changement != ACTIF || (algo == SJFP && preemption))?
+                        NULL:actif;
+        }
+
+        //On ajoute dans pret.
+        if(algo == RR && nouveauPret->taille > 1) {
+            listeQuickSort(nouveauPret, compareLigFichier);
+        }
+        temp = nouveauPret->debut;
+        while(temp) {
+            listeInserer(pret, temp->contenu);
+            listeRetirer(nouveauPret, temp->contenu);
+            temp = nouveauPret->debut;
         }
 
         if(actif == NULL) {
+            //On a a choisir un processus
             if(listeVide(pret) && !idle) {
                 debutIdle = temps;
                 idle = 1;
 
                 if(ancienActif) {
-                    sprintf(chaine, "PID %d : %d-%d\n", ancienActif->pid, ancienActif->tempsDebut, temps);
-                    write(pipe[1], chaine, strlen(chaine));
+                    ecrirePipe(pipe, ancienActif, temps, debutIdle);
 
                 }
 
             } else if (!listeVide(pret)) {
                 //On a un processus, donc on imprime le idle avant
                 if (idle) {
-                    sprintf(chaine, "%s : %d-%d\n", IDLE, debutIdle, temps);
-                    write(pipe[1], chaine, strlen(chaine));
+                    ecrirePipe(pipe, NULL, temps, debutIdle);
                     idle = 0;
                 }
                 actif = choisirProcessus(pret, algo);
 
-                if(ancienActif && (compareProcessus((void *)actif, (void *)ancienActif) != 0)) {
+                if(ancienActif && (compareProcessus((void *)actif, 
+                                (void *)ancienActif) != 0)) 
+                {
                     actif->tempsDebut = temps;
-                    sprintf(chaine, "PID %d : %d-%d\n", ancienActif->pid, ancienActif->tempsDebut, temps);
-                    write(pipe[1], chaine, strlen(chaine));
+                    ecrirePipe(pipe, ancienActif, temps, debutIdle);
                 } else if (!ancienActif)
                     actif->tempsDebut = temps;
 
@@ -507,21 +557,13 @@ void traiterProcessus(Liste *l, int *pipe, int quantum, enum Algorithme algo) {
     free(pret);
     free(bloque);
     free(nouveauPret);
-    position = l->debut;
-    while(position != NULL) {
-        temp = position->suivant;
-        libererProcessus((Processus *)position->contenu);
-        free(position);
-        position = temp;
-    }
-    free(l);
-
+    libererListeProcessus(l);
     return;
 }
 
-//Retourne l'etat du processus donne apres traitement
 enum Etat traiterActif(Processus *p, int quantum,  enum Algorithme algo) {
 
+    assert(p != NULL);
     Noeud *temp;
 
     //On met à jour le temp actif et le temps restant (soit pour un blocage, 
@@ -550,22 +592,6 @@ enum Etat traiterActif(Processus *p, int quantum,  enum Algorithme algo) {
     return ACTIF;
 }
 
-void libererProcessus(Processus *p) {
-
-    assert(p && "libere un processus NULL");
-    Noeud *n = p->tempsProc->debut;
-    Noeud *suivant;
-
-    while (n != NULL) {
-        suivant = n->suivant;
-        free(n->contenu);
-        free(n);
-        n = suivant;
-    }
-    free(p->tempsProc);
-    free(p);
-}
-
 Processus * choisirProcessus(Liste *pret, enum Algorithme algo) {
 
     assert(pret->taille > 0);
@@ -582,25 +608,117 @@ Processus * choisirProcessus(Liste *pret, enum Algorithme algo) {
             iterateur = iterateur->suivant;
         }
     }
-    listeRetirer(pret, p, compareProcessus);
+    listeRetirer(pret, p);
     return p;
 }
 
+int traiterListeBloque (Liste *bloque, Liste *pret) {
 
-//Ici on compare le temps jusqu'au prochain blocage. S'ils sont identiques, on prend
-//on retourne une valeur pour avoir la plus petite entrée dans l'ordre de lecture
-//du fichier
+    int preemption = 0;
+    //Maintenant on traite les processus bloques
+    Noeud *posBloque = bloque->debut, *aLiberer;
+    Processus *temp;    
+    while (posBloque != NULL) {
+        //On met à jour le temp de blocage
+        temp = (Processus *)posBloque->contenu;
+        (*((int *)(temp->tempsProc->debut->contenu)))++;
+        if((*((int *)(temp->tempsProc->debut->contenu))) >= 0) {
+            //Plus bloque: termine ou pret?
+            aLiberer = temp->tempsProc->debut;
+            temp->tempsProc->debut = temp->tempsProc->debut->suivant;
+            free((int *)aLiberer->contenu);
+            free(aLiberer);
+            if(temp->tempsProc->debut == NULL) {
+                temp->tempsProc->fin = NULL;
+            } else {
+                preemption = 1;
+                //Processus passe à prêt
+                listeInserer(pret, (void*)temp);
+            }
+            posBloque = posBloque->suivant;
+            listeRetirer(bloque, (void*)temp);
+
+        } else {
+            posBloque = posBloque->suivant;
+        }
+    }
+    return preemption;
+}
+
+
+void libererListeProcessus(Liste *l) {
+
+    Noeud *position = l->debut, *temp;
+
+    while(position != NULL) {
+        temp = position->suivant;
+        libererProcessus((Processus *)position->contenu);
+        free(position);
+        position = temp;
+    }
+    free(l);
+    return;
+}
+
+void libererProcessus(Processus *p) {
+
+    assert(p && "libere un processus NULL");
+    Noeud *n = p->tempsProc->debut;
+    Noeud *suivant;
+
+    while (n != NULL) {
+        suivant = n->suivant;
+        free(n->contenu);
+        free(n);
+        n = suivant;
+    }
+    free(p->tempsProc);
+    free(p);
+}
+
+//-----------------------------------------------------------------------------
+//Fonctions de comparaisons de processus
+
+int compareArrive(const void *p1, const void *p2) {
+    Processus *pr1 = (Processus *)p1;
+    Processus *pr2 = (Processus *)p2;
+    int temp = pr1->arrive - pr2->arrive;
+    if(temp != 0) 
+        return temp;
+        
+    return compareLigFichier(p1, p2);
+}
+
 int compareSJF(const void* p1, const void* p2) {
     Processus *pr1 = (Processus *)p1;
     Processus *pr2 = (Processus *)p2;
     int temp;
-    temp = (*((int *)pr1->tempsProc->debut->contenu)) - (*((int *)pr2->tempsProc->debut->contenu));
+    temp = (*((int *)pr1->tempsProc->debut->contenu)) - 
+            (*((int *)pr2->tempsProc->debut->contenu));
     if(temp != 0)
         return temp;
     else 
-        return pr1->ligneFich - pr2->ligneFich;
+        return compareLigFichier(p1, p2);
 }
+
+int compareLigFichier(const void* p1, const void* p2) {
+    Processus *pr1 = (Processus *)p1;
+    Processus *pr2 = (Processus *)p2;
+    return pr1->ligneFich - pr2->ligneFich;
+}
+
+int compareProcessus(const void *p1, const void *p2) {
+    Processus *pr1 = (Processus *)p1;
+    Processus *pr2 = (Processus *)p2;
+    int temp = pr1->pid - pr2->pid;
+    if (temp != 0)
+        return temp;
+    else
+        return pr1->arrive - pr2->arrive;
+}
+
 //--------------------------------------------------------------------------------
+//Fonctions de gestion de liste chainée
 
 Liste *listeCreer(void) {
 
@@ -628,14 +746,14 @@ Noeud *listeInserer(Liste *l, void *p) {
     }
     return temp;
 }
-
 //Cas à traiter: debut de la liste, fin de la liste et milieu
-void listeRetirer(Liste *l, void *p, int (*compare)(const void *p1, const void *p2)) {
+void listeRetirer(Liste *l, void *p) 
+{
     assert(l->taille > 0 && "Ne peut retirer d'une liste vide.");
     Noeud *del = NULL;
     Noeud *prec = NULL;
 
-    del = listeChercher(l, p, (*compare), &prec);
+    del = listeChercher(l, p, &prec);
     if(del != NULL) {
 
         l->taille--;
@@ -643,10 +761,10 @@ void listeRetirer(Liste *l, void *p, int (*compare)(const void *p1, const void *
             //Cas du dernier élément de la liste
             l->debut = NULL;
             l->fin = NULL;
-        } else if((*compare)(l->debut->contenu, del->contenu) == 0) {
+        } else if(compareProcessus(l->debut->contenu, del->contenu) == 0) {
             //Premier élément
             l->debut = del->suivant;
-        } else if((*compare)(l->fin->contenu, del->contenu) == 0) {
+        } else if(compareProcessus(l->fin->contenu, del->contenu) == 0) {
             //Dernier élément
             prec->suivant = NULL;
             l->fin = prec;
@@ -663,14 +781,14 @@ void listeRetirer(Liste *l, void *p, int (*compare)(const void *p1, const void *
     return;
 }
 
-Noeud *listeChercher(Liste *l, void *p, int (*compare)(const void *p1, const void *p2), Noeud **prec) {
+Noeud *listeChercher(Liste *l, void *p, Noeud **prec) {
     assert(l->taille > 0 && "Ne peut chercher dans une liste vide.");
     Noeud *ptr = l->debut;
     Noeud *tmp = NULL;
     int trouve = 0;
 
     while(ptr != NULL) {
-        if(!(*compare)(ptr->contenu, p)) {
+        if(!compareProcessus(ptr->contenu, p)) {
             trouve = 1;
             break;
         } else {
@@ -786,69 +904,4 @@ void listeQuickSort(Liste *l, int (*compare)(const void *p1, const void *p2)) {
         l->fin = temp2;
     }
     return;
-}
-
-//Deux processus sont pareils si ils ont le meme pid et le meme temps d'arrive
-int compareProcessus(const void *p1, const void *p2) {
-    Processus *pr1 = (Processus *)p1;
-    Processus *pr2 = (Processus *)p2;
-    int temp = pr1->pid - pr2->pid;
-    if (temp != 0)
-        return temp;
-    else
-        return pr1->arrive - pr2->arrive;
-}
-
-
-//Ici, j'utlilise une liste temporaire seulement pour respecter l'exigence
-//de toujours choisir le processus ayant la première ligne dans le fichier
-//soit remis dans pret en premier
-int traiterListeBloque (Liste *bloque, Liste *pret) {
-
-    Liste *plusBloque = listeCreer();
-    int preemption = 0;
-    //Maintenant on traite les processus bloques
-    Noeud *posBloque = bloque->debut, *aLiberer;
-    Processus *temp;    
-    while (posBloque != NULL) {
-        //On met à jour le temp de blocage
-        temp = (Processus *)posBloque->contenu;
-        (*((int *)(temp->tempsProc->debut->contenu)))++;
-        if((*((int *)(temp->tempsProc->debut->contenu))) >= 0) {
-            //Plus bloque: termine ou pret?
-            aLiberer = temp->tempsProc->debut;
-            temp->tempsProc->debut = temp->tempsProc->debut->suivant;
-            free((int *)aLiberer->contenu);
-            free(aLiberer);
-            if(temp->tempsProc->debut == NULL) {
-                temp->tempsProc->fin = NULL;
-            } else {
-                preemption = 1;
-                //Processus passe à prêt
-                listeInserer(pret, (void*)temp);
-            }
-            posBloque = posBloque->suivant;
-            listeRetirer(bloque, (void*)temp, compareProcessus);
-
-        } else {
-            posBloque = posBloque->suivant;
-        }
-    }
-    if(!listeVide(plusBloque)) {
-        listeQuickSort(plusBloque, compareLigFichier);
-
-        while(plusBloque->debut != NULL) {
-            listeInserer(pret, plusBloque->debut->contenu);
-            temp = (Processus *)plusBloque->debut->contenu;
-            listeRetirer(plusBloque, temp, compareProcessus);
-        }
-    }
-    free(plusBloque);
-    return preemption;
-}
-
-int compareLigFichier(const void* p1, const void* p2) {
-    Processus *pr1 = (Processus *)p1;
-    Processus *pr2 = (Processus *)p2;
-    return pr1->ligneFich - pr2->ligneFich;
 }
