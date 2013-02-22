@@ -500,7 +500,7 @@ void traiterProcessus(Liste *l, int *pipe, int quantum, enum Algorithme algo) {
                 listeInserer(bloque, (void *)actif);
             } else if (changement == PRET) {
                 listeInserer(nouveauPret, (void*)actif);
-            } else if (algo == SJFP && preemption) {
+            } else if (algo == SJFP && preemption && changement != FIN) {
                 listeInserer(nouveauPret, (void *)actif);
             }
             ancienActif = (changement != ACTIF || (algo == SJFP && preemption))?
