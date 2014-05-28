@@ -1,12 +1,11 @@
-INF3172_TP1
+Process scheduling simulation
 ===========
 
-Premier TP de INF317
+An OS homework to simulate different process scheduling algorithms. Three
+algorithms are simulated: Shortest job first, shortest job first with
+preemption and round robin.
 
-Reste à faire, important:
+***
 
-enmagasiner les résultats des fils dans des string, et les afficher à la fin des trois processus
-
--allocation dynamique de l'espace pour les lectures de lignes
-- RR
-- arranger le code en général
+Un devoir de système d'exploitation pour simuler différents algorithmes
+d'ordonnancement de processus. Les algorithmes SJF, SJFP et RR sont simulés.
